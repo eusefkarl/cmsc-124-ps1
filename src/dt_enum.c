@@ -67,17 +67,12 @@ dt_status dt_enum_from_name(const char *name, int *out)
        dt_enum_from_name("PURPLE", &out)  -> DT_ERR_RANGE, out untouched
        dt_enum_from_name("1", &out)       -> DT_ERR_RANGE because no text matches
        cases/normal/enum_names.case */
-    bool isValidName = false;
+       
     for (int i = 0; i < DT_COLOR_COUNT; i++){
         if (name == COLOR_NAMES[i]){
-            isValidName = true;
+            *out = 1;
+            return DT_OK;
         }
     }
-    if (isValidName){
-        *out = 1;
-        return DT_OK;
-    }
-    else{
-        return DT_ERR_RANGE;
-    }
+    return DT_ERR_RANGE;
 }
