@@ -123,6 +123,11 @@ dt_status dt_value_as_enum(dt_value v, int *out)
     }
     *out = v.as.ordinal;
     return DT_OK;
+    if (v.tag != DT_ENUM) {
+        return DT_ERR_TAG;
+    }
+    *out = v.as.ordinal;
+    return DT_OK;
 }
 
 /*
