@@ -26,12 +26,10 @@ bool dt_enum_is_valid(int ordinal)
        dt_enum_is_valid(2)   -> true, BLUE
        dt_enum_is_valid(3)   -> false, one past the set
        dt_enum_is_valid(-1)  -> false, below the lower bound */
-    if (ordinal > DT_COLOR_COUNT || ordinal < 0){
+    if (ordinal > (DT_COLOR_COUNT - 1) || ordinal < 0){
         return false;
     }
-    else{
-        return true;
-    }
+    return true;
 }
 
 /*
@@ -69,7 +67,7 @@ dt_status dt_enum_from_name(const char *name, int *out)
        cases/normal/enum_names.case */
 
     for (int i = 0; i < DT_COLOR_COUNT; i++){
-        if (name == COLOR_NAMES[i]){
+        if (strcmp(COLOR_NAMES[i], name) == 0){
             *out = i;
             return DT_OK;
         }
