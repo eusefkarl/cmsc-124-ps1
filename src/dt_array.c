@@ -46,6 +46,7 @@ dt_array *dt_array_new(size_t length, long long lower_bound)
     dt_array *a = malloc(sizeof(*a)); //allocate dt_array
     //check if a allocation fails
     if (a == NULL){
+        free(a);
         return NULL; 
     }
 
@@ -55,6 +56,7 @@ dt_array *dt_array_new(size_t length, long long lower_bound)
     a->elements = malloc(length * sizeof(dt_value_nil())); //allocate array elements
     //check if element allocation fails
     if (a->elements == NULL){
+        free(a->elements);
         return NULL; 
     }
     for (size_t i = 0; i < length; i++){
