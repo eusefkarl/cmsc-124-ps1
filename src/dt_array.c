@@ -53,10 +53,27 @@ dt_array *dt_array_new(size_t length, long long lower_bound)
     a->length = length;
     a->lower_bound = lower_bound;
 
+    if (length > SIZE_MAX / sizeof(dt_value)){
+        free(a);
+        return NULL; //reject element block size that exceeds SIZE_MAX
+    }
+    if (length > 0 && lower_bound > LLONG_MAX - (long long)length + 1){
+        free(a);
+        return NULL; //reject unrepresentable final index
+    }
+    
+    if (length == 0) {
+        a->elements = NULL;
+        return a; //return valid array for zero length
+    }
+
     a->elements = malloc(length * sizeof(dt_value_nil())); //allocate array elements
+    
     //check if element allocation fails
     if (a->elements == NULL){
+        //just in case lol 
         free(a->elements);
+        free(a);
         return NULL; 
     }
     for (size_t i = 0; i < length; i++){
