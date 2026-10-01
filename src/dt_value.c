@@ -103,7 +103,6 @@ dt_status dt_value_as_int(dt_value v, long long *out)
     if (v.tag != DT_INT) {
         return DT_ERR_TAG;
     }
-    (void)v;
     *out = v.as.integer;
     return DT_OK;
 }
