@@ -28,6 +28,7 @@ dt_value dt_value_nil(void)
 dt_value dt_value_int(long long n)
 {
     dt_value v = { .tag = DT_INT, .as = { .integer = n } };
+    
     return v;
 }
 
@@ -103,6 +104,7 @@ dt_status dt_value_as_int(dt_value v, long long *out)
     if (v.tag != DT_INT) {
         return DT_ERR_TAG;
     }
+
     *out = v.as.integer;
     return DT_OK;
 }
@@ -121,6 +123,7 @@ dt_status dt_value_as_enum(dt_value v, int *out)
     }
     *out = v.as.ordinal;
     return DT_OK;
+
 }
 
 /*
@@ -133,11 +136,7 @@ dt_status dt_value_as_str(dt_value v, dt_str **out)
        dt_value_as_str(dt_value_int(42), &out) -> DT_ERR_TAG, *out untouched
        the tag check prevents the printer from reading 42 as an address
        cases/normal/union_readers.case, cases/tag/as_str_on_int.case */
-    /* TODO: Check DT_ENUM and write v.as.ordinal to *out.
-       dt_value_as_enum(dt_value_enum(2), &out)  -> DT_OK, out = 2 for BLUE
-       dt_value_as_enum(dt_value_nil(), &out)    -> DT_ERR_TAG, out untouched
-       cases/normal/union_readers.case, cases/tag/as_enum_on_nil.case */
-    if (v.tag != DT_ENUM) {
+    if (v.tag != DT_STR) {
         return DT_ERR_TAG;
     }
     *out = v.as.string;
