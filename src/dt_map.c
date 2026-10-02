@@ -35,7 +35,6 @@ struct dt_map_entry
 {
     char *key;
     dt_value value;
-    size_t bucket_count;
     struct dt_map_entry *next; /*holds the chain*/
 };
 
@@ -287,6 +286,36 @@ dt_status dt_map_remove(dt_map *m, const char *key)
         if (strcmp(cursor->key, key) == 0)
         {
             // TODO
+            // remove from insertion order
+            for (size_t i = 0; i < m->count; i++)
+            {
+                if (strcmp(m->order[i], key) == 0)
+                {
+                    // shift the order array to remove the key
+                    for (size_t j = i; j < m->count - 1; j++)
+                    {
+                        m->order[j] = m->order[j + 1];
+                    }
+                    m->count -= 1;
+                    free(cursor->key);
+                    free(cursor);
+                    break;
+                }
+            }
+        // remove from bucket chain
+            if (cursor == m->buckets[index])
+            {
+                m->buckets[index] = cursor->next;
+            }
+            else
+            {
+                struct dt_map_entry *prev = m->buckets[index];
+                while (prev->next != cursor)
+                {
+                    prev = prev->next;
+                }
+                prev->next = cursor->next;
+            }
             return DT_OK;
         }
         cursor = cursor->next;
@@ -308,8 +337,9 @@ dt_status dt_map_key_at(const dt_map *m, size_t index, const char **out)
          dt_map_key_at(m, 0, &out)  -> DT_OK, *out = "alpha"
          dt_map_key_at(m, 3, &out)  -> DT_ERR_RANGE, *out untouched
        cases/normal/map_basics.case */
-    (void)m;
-    (void)index;
-    (void)out;
-    return DT_ERR_RANGE;
+    if(index >= m->count){
+        return DT_ERR_RANGE;
+    }
+    *out = m->order[index];
+    return DT_OK;
 }
