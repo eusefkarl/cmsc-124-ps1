@@ -135,14 +135,14 @@ dt_status dt_map_put(dt_map *m, const char *key, dt_value v)
         //check allocation
         if (m->order == NULL){
             free(m->order);
-            return NULL;
+            return DT_ERR_CAPACITY;
         }
         //malloc key
         m->order[0] = malloc(sizeof(key)+1);
         //check allocation
         if (m->order[0] == NULL){
             free(m->order[0]);
-            return NULL;
+            return DT_ERR_CAPACITY;
         }
         //insert at index 0
         strcpy(m->order[0], key);
@@ -162,7 +162,7 @@ dt_status dt_map_put(dt_map *m, const char *key, dt_value v)
         //check allocation
         if (m->order[m->count] == NULL){
             free(m->order[m->count]);
-            return NULL;
+            return DT_ERR_CAPACITY;
         }
         //insert at end of array and update count
         strcpy(m->order[m->count], key);
@@ -183,7 +183,7 @@ dt_status dt_map_put(dt_map *m, const char *key, dt_value v)
     }
     
     //no entry with key found at cursor, allocate new entry and add it to cursor
-    struct dt_map_entry *entry = malloc(sizeof(struct dt_map_entry *));
+    struct dt_map_entry *entry = malloc(sizeof(struct dt_map_entry));
     //check allocation
     if (entry == NULL){
         free(entry);
