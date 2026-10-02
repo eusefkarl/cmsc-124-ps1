@@ -25,7 +25,7 @@ const size_t INITIAL_BUCKET_COUNT = 20;
 struct dt_map {
     /* TODO: Add the buckets and insertion-order data. */
     struct dt_map_entry **buckets; /*array of bucket heads*/
-    struct dt_map_entry **order; /*insertion of bucket keys*/
+    char **order; /*insertion of bucket keys*/
     size_t count; /*number of entries*/
     size_t capacity; /*number of buckets*/
     size_t bucket_count;
@@ -58,7 +58,7 @@ dt_map *dt_map_new(void)
         free(m);
         return NULL;
     }
-    for (int i = 0; i < INITIAL_BUCKET_COUNT; i++){
+    for (size_t i = 0; i < INITIAL_BUCKET_COUNT; i++){
         m->buckets[i] = NULL;
     }
 
@@ -131,8 +131,44 @@ dt_status dt_map_put(dt_map *m, const char *key, dt_value v)
     //check if order has items
     if (m->order == NULL){
         //allocate if null
-        m->order = malloc(m->capacity * sizeof(struct dt_map_entry *));
+        m->order = malloc(m->capacity * sizeof(char *));
+        //check allocation
+        if (m->order == NULL){
+            free(m->order);
+            return NULL;
+        }
+        //malloc key
+        m->order[0] = malloc(sizeof(key)+1);
+        //check allocation
+        if (m->order[0] == NULL){
+            free(m->order[0]);
+            return NULL;
+        }
+        //insert at index 0
+        strcpy(m->order[0], key);
+        m->count = 1;
     }
+    //check if key is in order array, insert if not found
+    bool keyExists = false;
+    for (size_t i = 0; i < m->count; i++){
+        if (strcmp(m->order[i], key) == 0){
+            keyExists = true;
+        }
+    }
+    //key does not exist, add key to end of array
+    if(!keyExists){
+        //malloc key
+        m->order[m->count] = malloc(sizeof(key)+1);
+        //check allocation
+        if (m->order[m->count] == NULL){
+            free(m->order[m->count]);
+            return NULL;
+        }
+        //insert at end of array and update count
+        strcpy(m->order[m->count], key);
+        m->count += 1;
+    }
+
 
 
 
