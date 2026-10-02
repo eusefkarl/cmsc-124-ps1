@@ -176,7 +176,7 @@ dt_status dt_map_put(dt_map *m, const char *key, dt_value v)
     struct dt_map_entry *cursor = m->buckets[index];
     while(cursor != NULL){
         if (strcmp(cursor->key, key) == 0){
-            m->buckets[index]->value = v;
+            cursor->value = v;
             return DT_OK;
         }
         cursor = cursor->next;
@@ -198,6 +198,7 @@ dt_status dt_map_put(dt_map *m, const char *key, dt_value v)
     
     strcpy(entry->key, key);
     entry->value = v;
+    entry->next = m->buckets[index];
 
     m->buckets[index] = entry;
 
