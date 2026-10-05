@@ -37,18 +37,6 @@ struct dt_map_entry{
     struct dt_map_entry *next; /*holds the chain*/
 };
 
-/* Hash key bytes using the same unsigned arithmetic for every operation. */
-static unsigned long long dt_map_hash(const char *key)
-{
-    unsigned long long h = 14695981039346656037ULL;
-    for (const unsigned char *p = (const unsigned char *)key;
-         *p != '\0'; p++) {
-        h ^= *p;
-        h *= 1099511628211ULL;
-    }
-    return h;
-}
-
 /*
  * dt_map_new builds an empty map. It returns NULL after an allocation failure.
  */
@@ -135,7 +123,13 @@ size_t dt_map_len(const dt_map *m)
  */
 dt_status dt_map_put(dt_map *m, const char *key, dt_value v)
 {
-    size_t index = (size_t)(dt_map_hash(key) % m->bucket_count);
+    unsigned long long h = 14695981039346656037ULL;
+    for (const unsigned char *p = (const unsigned char *)key;
+         *p != '\0'; p++) {
+        h ^= *p;
+        h *= 1099511628211ULL;
+    }
+    size_t index = (size_t)(h % m->bucket_count);
 
     /* Updating a key preserves its insertion position. */
     struct dt_map_entry *cursor = m->buckets[index];
@@ -219,7 +213,13 @@ dt_status dt_map_get(const dt_map *m, const char *key, dt_value *out)
          dt_map_get(m, "beta", &out)   -> DT_OK, *out is the integer 22
          dt_map_get(m, "ghost", &out)  -> DT_ERR_KEY, *out untouched
        cases/normal/map_basics.case, cases/boundary/map_missing_key.case */
-    size_t index = (size_t)(dt_map_hash(key) % m->bucket_count);
+    //get the hash
+    unsigned long long h = 14695981039346656037ULL;
+    for (const unsigned char *p = (const unsigned char *)key; *p != '\0'; p++) {
+        h ^= (unsigned long long)*p;
+        h *= 1099511628211ULL;
+    }
+    unsigned long long index = h % m->bucket_count;
 
     //checks if key exists in map and output value
     struct dt_map_entry *cursor = m->buckets[index];
@@ -247,7 +247,13 @@ dt_status dt_map_remove(dt_map *m, const char *key)
          dt_map_remove(m, "ghost")  -> DT_ERR_KEY, nothing changes
        reinserting "alpha" appends it after "gamma"
        cases/normal/map_basics.case, cases/boundary/map_remove_missing_key.case */
-    size_t index = (size_t)(dt_map_hash(key) % m->bucket_count);
+    //get the hash
+    unsigned long long h = 14695981039346656037ULL;
+    for (const unsigned char *p = (const unsigned char *)key; *p != '\0'; p++) {
+        h ^= (unsigned long long)*p;
+        h *= 1099511628211ULL;
+    }
+    unsigned long long index = h % m->bucket_count;
 
     //checks if key exists in map and output value
     struct dt_map_entry *cursor = m->buckets[index];
@@ -263,8 +269,7 @@ dt_status dt_map_remove(dt_map *m, const char *key)
                     } else {
                         prev->next = current->next;
                     }
-                    free(current->key);
-                    free(current);
+                    
                     break;
                 }
                 prev = current;
@@ -281,6 +286,8 @@ dt_status dt_map_remove(dt_map *m, const char *key)
                     break;
                 }
             }
+            free(current->key);
+            free(current);
 
             return DT_OK;
         }
