@@ -89,6 +89,20 @@ void dt_map_free(dt_map *m)
     {
         return;
     }
+    for (size_t i = 0; i < m->bucket_count; i++)
+    {
+        struct dt_map_entry *cursor = m->buckets[i];
+        while (cursor != NULL)
+        {
+            struct dt_map_entry *next = cursor->next;
+            free(cursor->key);
+            free(cursor);
+            cursor = next;
+        }
+    }
+    free(m->buckets);
+    free(m->order);
+    free(m);
 }
 
 /*
@@ -297,8 +311,7 @@ dt_status dt_map_remove(dt_map *m, const char *key)
                         m->order[j] = m->order[j + 1];
                     }
                     m->count -= 1;
-                    free(cursor->key);
-                    free(cursor);
+                    
                     break;
                 }
             }
@@ -316,9 +329,12 @@ dt_status dt_map_remove(dt_map *m, const char *key)
                 }
                 prev->next = cursor->next;
             }
+            free(cursor->key);
+            free(cursor);
             return DT_OK;
         }
         cursor = cursor->next;
+       
     }
     // key doesn't exist in map
     return DT_ERR_KEY;
