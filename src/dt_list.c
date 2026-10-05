@@ -54,9 +54,7 @@ dt_list *dt_list_cons(dt_value head, dt_list *tail)
        List b contains (2 3) and references the same cells for 2 and 3.
        an allocation failure -> NULL
        cases/normal/list_basics.case, cases/cleanup/shared_list_tail.case */
-    if (head.tag == DT_REF) {
-        return NULL;
-    }
+   
     dt_list *new_cell = malloc(sizeof(*new_cell));
     if (new_cell == NULL) {
         return NULL;
