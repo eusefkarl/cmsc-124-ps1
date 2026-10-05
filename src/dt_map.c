@@ -22,8 +22,6 @@
 
 const size_t INITIAL_BUCKET_COUNT = 20;
 
-const size_t INITIAL_BUCKET_COUNT = 20;
-
 struct dt_map
 {
     /* TODO: Add the buckets and insertion-order data. */
