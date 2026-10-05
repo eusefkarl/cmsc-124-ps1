@@ -22,21 +22,32 @@
 
 const size_t INITIAL_BUCKET_COUNT = 20;
 
-struct dt_map
-{
+struct dt_map {
     /* TODO: Add the buckets and insertion-order data. */
     struct dt_map_entry **buckets; /*array of bucket heads*/
-    char **order;                  /*insertion of bucket keys*/
-    size_t count;                  /*number of entries*/
-    size_t capacity;               /*number of buckets*/
+    char **order; /*insertion of bucket keys*/
+    size_t count; /*number of entries*/
+    size_t capacity; /*number of buckets*/
     size_t bucket_count;
 };
-struct dt_map_entry
-{
+struct dt_map_entry{
     char *key;
     dt_value value;
+    size_t bucket_count;
     struct dt_map_entry *next; /*holds the chain*/
 };
+
+/* Hash key bytes using the same unsigned arithmetic for every operation. */
+static unsigned long long dt_map_hash(const char *key)
+{
+    unsigned long long h = 14695981039346656037ULL;
+    for (const unsigned char *p = (const unsigned char *)key;
+         *p != '\0'; p++) {
+        h ^= *p;
+        h *= 1099511628211ULL;
+    }
+    return h;
+}
 
 /*
  * dt_map_new builds an empty map. It returns NULL after an allocation failure.
@@ -47,22 +58,19 @@ dt_map *dt_map_new(void)
        dt_map_new()  -> a map whose dt_map_len is 0
        cases/normal/map_basics.case */
     dt_map *m = malloc(sizeof(dt_map));
-    // allocation check
-    if (m == NULL)
-    {
+    //allocation check
+    if (m == NULL){
         free(m);
         return NULL;
     }
     m->buckets = malloc(INITIAL_BUCKET_COUNT * sizeof(struct dt_map_entry *));
-    // allocation check
-    if (m->buckets == NULL)
-    {
+    //allocation check
+    if (m->buckets == NULL){
         free(m->buckets);
         free(m);
         return NULL;
     }
-    for (size_t i = 0; i < INITIAL_BUCKET_COUNT; i++)
-    {
+    for (size_t i = 0; i < INITIAL_BUCKET_COUNT; i++){
         m->buckets[i] = NULL;
     }
 
@@ -85,15 +93,12 @@ void dt_map_free(dt_map *m)
        a map holding a string value  -> the nodes and keys go, the string stays
        dt_map_free(NULL)             -> returns, having done nothing
        cases/cleanup/map_churn.case */
-    if (m == NULL)
-    {
+    if (m == NULL){
         return;
     }
-    for (size_t i = 0; i < m->bucket_count; i++)
-    {
+    for (size_t i = 0; i < m->bucket_count; i++){
         struct dt_map_entry *cursor = m->buckets[i];
-        while (cursor != NULL)
-        {
+        while (cursor != NULL){
             struct dt_map_entry *next = cursor->next;
             free(cursor->key);
             free(cursor);
@@ -116,8 +121,7 @@ size_t dt_map_len(const dt_map *m)
        after put beta again:          dt_map_len(m) -> 3, still
        after del alpha:               dt_map_len(m) -> 2
        cases/normal/map_basics.case */
-    if (m == NULL)
-    {
+    if (m == NULL){
         return 0;
     }
     return m->count;
@@ -131,96 +135,73 @@ size_t dt_map_len(const dt_map *m)
  */
 dt_status dt_map_put(dt_map *m, const char *key, dt_value v)
 {
-    /* TODO: Replace the value for an existing key.
-       Add a new entry for a new key. Copy each new key.
-       Hash the key. Select its bucket. Search the bucket chain.
-       Add a new entry to the chain and insertion list.
-       put "beta" -> 2 on an empty map    -> DT_OK, "beta" is last in order
-       put "beta" -> 22 on that map       -> DT_OK, same position, new value
-       an allocation failure              -> DT_ERR_CAPACITY, map unchanged
-       cases/normal/map_basics.case */
+    size_t index = (size_t)(dt_map_hash(key) % m->bucket_count);
 
-    //get the hash
-    unsigned long long h = 14695981039346656037ULL;
-    for (const unsigned char *p = (const unsigned char *)key; *p != '\0'; p++) {
-        h ^= (unsigned long long)*p;
-        h *= 1099511628211ULL;
-    }
-    unsigned long long index = h % m->bucket_count;
-
-    //check if order has items
-    if (m->order == NULL){
-        //allocate if null
-        m->order = malloc(m->capacity * sizeof(char *));
-        //check allocation
-        if (m->order == NULL){
-            free(m->order);
-            return DT_ERR_CAPACITY;
-        }
-        //malloc key
-        m->order[0] = malloc(sizeof(key)+1);
-        //check allocation
-        if (m->order[0] == NULL){
-            free(m->order[0]);
-            return DT_ERR_CAPACITY;
-        }
-        //insert at index 0
-        strcpy(m->order[0], key);
-        m->count = 1;
-    }
-    //check if key is in order array, insert if not found
-    bool keyExists = false;
-    for (size_t i = 0; i < m->count; i++){
-        if (strcmp(m->order[i], key) == 0){
-            keyExists = true;
-        }
-    }
-    //key does not exist, add key to end of array
-    if(!keyExists){
-        //malloc key
-        m->order[m->count] = malloc(sizeof(key)+1);
-        //check allocation
-        if (m->order[m->count] == NULL){
-            free(m->order[m->count]);
-            return DT_ERR_CAPACITY;
-        }
-        //insert at end of array and update count
-        strcpy(m->order[m->count], key);
-        m->count += 1;
-    }
-
-
-
-
-    //checks if key exists in map and reassigns value
+    /* Updating a key preserves its insertion position. */
     struct dt_map_entry *cursor = m->buckets[index];
-    while(cursor != NULL){
-        if (strcmp(cursor->key, key) == 0){
+    while (cursor != NULL) {
+        if (strcmp(cursor->key, key) == 0) {
             cursor->value = v;
             return DT_OK;
         }
         cursor = cursor->next;
     }
-    
-    //no entry with key found at cursor, allocate new entry and add it to cursor
-    struct dt_map_entry *entry = malloc(sizeof(struct dt_map_entry));
-    //check allocation
-    if (entry == NULL){
+
+    struct dt_map_entry *entry = malloc(sizeof(*entry));
+    if (entry == NULL) {
+        return DT_ERR_CAPACITY;
+    }
+
+    size_t key_length = strlen(key);
+    if (key_length == SIZE_MAX) {
         free(entry);
         return DT_ERR_CAPACITY;
     }
-    entry->key = malloc(sizeof(key)+1);
-    //check allocation
-    if (entry->key == NULL){
-        free(entry->key);
+
+    entry->key = malloc(key_length + 1);
+    if (entry->key == NULL) {
+        free(entry);
         return DT_ERR_CAPACITY;
     }
-    
+
     strcpy(entry->key, key);
     entry->value = v;
-    entry->next = m->buckets[index];
 
+    /* Reserve order storage before linking the entry. */
+    if (m->count == m->capacity) {
+        size_t limit = SIZE_MAX / sizeof(*m->order);
+        if (m->capacity >= limit) {
+            free(entry->key);
+            free(entry);
+            return DT_ERR_CAPACITY;
+        }
+
+        size_t new_capacity;
+        if (m->capacity == 0) {
+            new_capacity = limit < 4 ? limit : 4;
+        } else {
+            new_capacity = m->capacity > limit / 2
+                         ? limit : m->capacity * 2;
+        }
+
+        char **new_order = realloc(
+            m->order, new_capacity * sizeof(*m->order)
+        );
+        if (new_order == NULL) {
+            free(entry->key);
+            free(entry);
+            return DT_ERR_CAPACITY;
+        }
+
+        m->order = new_order;
+        m->capacity = new_capacity;
+    }
+
+    entry->next = m->buckets[index];
     m->buckets[index] = entry;
+
+    m->order[m->count] = entry->key;
+    m->count++;
 
     return DT_OK;
 }
@@ -238,13 +219,7 @@ dt_status dt_map_get(const dt_map *m, const char *key, dt_value *out)
          dt_map_get(m, "beta", &out)   -> DT_OK, *out is the integer 22
          dt_map_get(m, "ghost", &out)  -> DT_ERR_KEY, *out untouched
        cases/normal/map_basics.case, cases/boundary/map_missing_key.case */
-    //get the hash
-    unsigned long long h = 14695981039346656037ULL;
-    for (const unsigned char *p = (const unsigned char *)key; *p != '\0'; p++) {
-        h ^= (unsigned long long)*p;
-        h *= 1099511628211ULL;
-    }
-    unsigned long long index = h % m->bucket_count;
+    size_t index = (size_t)(dt_map_hash(key) % m->bucket_count);
 
     //checks if key exists in map and output value
     struct dt_map_entry *cursor = m->buckets[index];
@@ -272,59 +247,46 @@ dt_status dt_map_remove(dt_map *m, const char *key)
          dt_map_remove(m, "ghost")  -> DT_ERR_KEY, nothing changes
        reinserting "alpha" appends it after "gamma"
        cases/normal/map_basics.case, cases/boundary/map_remove_missing_key.case */
-    // get the hash
-    unsigned long long h = 14695981039346656037ULL;
-    for (const unsigned char *p = (const unsigned char *)key; *p != '\0'; p++)
-    {
-        h ^= (unsigned long long)*p;
-        h *= 1099511628211ULL;
-    }
-    unsigned long long index = h % m->bucket_count;
+    size_t index = (size_t)(dt_map_hash(key) % m->bucket_count);
 
-    // checks if key exists in map and output value
+    //checks if key exists in map and output value
     struct dt_map_entry *cursor = m->buckets[index];
-    while (cursor != NULL)
-    {
-        if (strcmp(cursor->key, key) == 0)
-        {
-            // TODO
-            // remove from insertion order
-            for (size_t i = 0; i < m->count; i++)
-            {
-                if (strcmp(m->order[i], key) == 0)
-                {
-                    // shift the order array to remove the key
-                    for (size_t j = i; j < m->count - 1; j++)
-                    {
+    while(cursor != NULL){
+        if (strcmp(cursor->key, key) == 0){
+            //remove from bucket
+            struct dt_map_entry *prev = NULL;
+            struct dt_map_entry *current = m->buckets[index];
+            while (current != NULL) {
+                if (strcmp(current->key, key) == 0) {
+                    if (prev == NULL) {
+                        m->buckets[index] = current->next;
+                    } else {
+                        prev->next = current->next;
+                    }
+                    free(current->key);
+                    free(current);
+                    break;
+                }
+                prev = current;
+                current = current->next;
+            }
+
+            //remove from order
+            for (size_t i = 0; i < m->count; i++) {
+                if (strcmp(m->order[i], key) == 0) {
+                    for (size_t j = i; j < m->count - 1; j++) {
                         m->order[j] = m->order[j + 1];
                     }
-                    m->count -= 1;
-                    
+                    m->count--;
                     break;
                 }
             }
-        // remove from bucket chain
-            if (cursor == m->buckets[index])
-            {
-                m->buckets[index] = cursor->next;
-            }
-            else
-            {
-                struct dt_map_entry *prev = m->buckets[index];
-                while (prev->next != cursor)
-                {
-                    prev = prev->next;
-                }
-                prev->next = cursor->next;
-            }
-            free(cursor->key);
-            free(cursor);
+
             return DT_OK;
         }
         cursor = cursor->next;
-       
     }
-    // key doesn't exist in map
+    //key doesn't exist in map
     return DT_ERR_KEY;
 }
 
@@ -341,7 +303,10 @@ dt_status dt_map_key_at(const dt_map *m, size_t index, const char **out)
          dt_map_key_at(m, 0, &out)  -> DT_OK, *out = "alpha"
          dt_map_key_at(m, 3, &out)  -> DT_ERR_RANGE, *out untouched
        cases/normal/map_basics.case */
-    if(index >= m->count){
+    if (m == NULL || out == NULL) {
+        return DT_ERR_RANGE;
+    }
+    if (index >= m->count) {
         return DT_ERR_RANGE;
     }
     *out = m->order[index];
