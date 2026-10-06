@@ -3,3 +3,5 @@ build/
 build-san/
 run_tests.py
 __pycache__/
+setup.sh
+.vscode/

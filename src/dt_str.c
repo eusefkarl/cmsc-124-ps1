@@ -37,9 +37,26 @@ dt_str *dt_str_new(const char *bytes, size_t length)
        dt_str_new("hello", 5)  -> a string whose dt_str_len is 5
        dt_str_new("a\0b", 3)   -> a string whose dt_str_len remains 3
        cases/normal/string_building.case, cases/capacity/embedded_zero_byte.case */
-    (void)bytes;
-    (void)length;
-    return NULL;
+    if (length == SIZE_MAX) {
+        return NULL;
+    }
+    //allocate memory for the dt_str structure and check for allocation failure
+    dt_str *s = malloc(sizeof(dt_str));
+    if (s == NULL) {
+        return NULL;
+    }
+    //allocate memory for the string bytes and check for allocation failure
+    s->bytes = malloc(length + 1);
+    if (s->bytes == NULL) {
+        free(s);
+        return NULL;
+    }
+    //copy the bytes and set the length and capacity
+    memcpy(s->bytes, bytes, length);
+    s->bytes[length] = '\0';
+    s->length = length;
+    s->capacity = length + 1;
+    return s;
 }
 
 /*
@@ -50,7 +67,10 @@ void dt_str_free(dt_str *s)
     /* TODO: Release the buffer. Then release the handle. Accept NULL.
        dt_str_free(s)     -> the buffer and the handle are both released
        dt_str_free(NULL)  -> returns, having done nothing */
-    (void)s;
+    if(s != NULL) {
+        free(s->bytes);
+        free(s);
+    }
 }
 
 /*
@@ -62,8 +82,10 @@ size_t dt_str_len(const dt_str *s)
        after `str new greeting "hello"` then `str append greeting ", world"`:
          dt_str_len(greeting) -> 12
        cases/normal/string_building.case */
-    (void)s;
-    return 0;
+    if(s == NULL) {
+        return 0;
+    }
+    return s->length;
 }
 
 /*
@@ -77,8 +99,10 @@ const char *dt_str_bytes(const dt_str *s)
          dt_str_bytes(s) -> the three bytes 'a', 0, 'b'
          dt_str_len(s)   -> 3, the required read length
        cases/capacity/embedded_zero_byte.case */
-    (void)s;
-    return "";
+    if(s == NULL) {
+        return NULL;
+    }
+    return s->bytes;
 }
 
 /*
@@ -95,10 +119,29 @@ dt_status dt_str_append(dt_str *s, const char *bytes, size_t length)
        s holds "hello": dt_str_append(s, ", world", 7) -> DT_OK, len is now 12
        an allocation failure                           -> DT_ERR_CAPACITY, s unchanged
        cases/normal/string_building.case, cases/capacity/string_growth.case */
-    (void)s;
-    (void)bytes;
-    (void)length;
-    return DT_ERR_CAPACITY;
+    if(s == NULL || bytes == NULL) {
+        return DT_ERR_CAPACITY;
+    }
+    size_t new_length = s->length + length;
+    if (new_length < s->length || new_length == SIZE_MAX) {
+        return DT_ERR_CAPACITY;
+    }
+    if (new_length + 1 > s->capacity) {
+        size_t new_capacity = s-> capacity * 2;
+        if (new_capacity < new_length + 1) {
+            new_capacity = new_length + 1;
+        }
+        char *new_bytes = realloc(s->bytes, new_capacity);
+        if (new_bytes == NULL) {
+            return DT_ERR_CAPACITY;
+        }
+        s->bytes = new_bytes;
+        s->capacity = new_capacity;
+    }
+    memcpy(s->bytes + s->length, bytes, length);
+    s->length = new_length;
+    s->bytes[s->length] = '\0';
+    return DT_OK;
 }
 
 /*
@@ -118,11 +161,19 @@ dt_status dt_str_substr(const dt_str *s, size_t start, size_t length, dt_str **o
          dt_str_substr(s, 3, 5, &out)  -> DT_ERR_RANGE, *out untouched
        an allocation failure           -> DT_ERR_CAPACITY, *out untouched
        cases/boundary/substr_exact_end.case, cases/boundary/substr_past_end.case */
-    (void)s;
-    (void)start;
-    (void)length;
-    (void)out;
-    return DT_ERR_RANGE;
+    if (s == NULL || out == NULL) {
+        return DT_ERR_CAPACITY;
+    }
+    if (start + length > s->length){
+        return DT_ERR_RANGE;
+    }
+    dt_str *new_str =  dt_str_new(s->bytes + start, length);
+    if (new_str == NULL) {
+        return DT_ERR_CAPACITY;
+    }
+    *out = new_str;
+    return DT_OK;
+    
 }
 
 /*
@@ -137,7 +188,11 @@ bool dt_str_eq(const dt_str *a, const dt_str *b)
        "hello" and "world"  -> false
        "a\0b" and "a"       -> false because their lengths are 3 and 1
        cases/normal/string_building.case, cases/capacity/embedded_zero_byte.case */
-    (void)a;
-    (void)b;
-    return false;
+    if (a == NULL || b == NULL) {
+        return false;
+    }
+    if (a->length != b->length) {
+        return false;
+    }
+    return memcmp(a->bytes, b->bytes, a->length) == 0;
 }
