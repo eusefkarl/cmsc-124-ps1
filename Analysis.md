@@ -21,7 +21,9 @@
     C’s freedom can be useful when working with existing C interfaces, controlling representation, or avoiding a repeated check after another operation has already established the type. However, unchecked access is not automatically faster: a compiler can eliminate redundant checks in a language that enforces safety.
     
 3. Your `dt_map` keeps insertion order separately from the hash buckets, which is memory spent on something no lookup uses. Argue the other side: describe a design that drops it, say what breaks, and say whether you'd ship it.<br>  
-    Removing insertion order makes the output less difficult which will hinder the testing process. It also makes it harder to keep track of the history should you need to display it. Personally I think keeping insertion orders is a necessary step when the use needs it, and for this one we want to test our map behvaior so I would not ship something with no insertion order.
+    We *could* remove order and traverse buckets and collision chains instead. Lookup would still work, while saving pointer storage, order-array reallocations, and deletion shifts. However, traversal would follow bucket order rather than insertion order. Printing would change, reinserting a key would not reliably place it last, and `dt_map_key_at` would lose its promised meaning.  
+    Removing insertion order makes the output less difficult which will hinder the testing process. It also makes it harder to keep track of the history should you need to display it or use it for lookup. For this, keeping insertion orders is a necessary step when the use needs it, and for this one we want to test our map behavior so this cannot be shipped something with no insertion order.  
+    
 
 
 4. Compare access after release with an allocation that remains unreleased at the driver's final check. What damage can each cause in a long-running server? How does that answer change for a command-line tool that exits in a second?<br>
